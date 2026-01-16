@@ -1,0 +1,19 @@
+# Core ML libraries
+tensorflow>=2.6.0
+numpy>=1.19.5
+pandas
+scikit-learn
+
+# Image processing
+opencv-python>=4.8.0
+pillow>=10.0.0
+matplotlib
+
+# OCR engines
+pytesseract>=0.3.10
+vietocr>=0.3.4
+torch>=1.9.0
+torchvision>=0.10.0
+
+# GUI and system
+pywin32; sys_platform == "win32"
