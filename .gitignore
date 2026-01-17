@@ -1,3 +1,5 @@
 data/
 .venv/
 diagnostic_out/
+__pycache__/
+*.pyc
