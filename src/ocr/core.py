@@ -97,13 +97,14 @@ def preprocess_for_tesseract(img, scale_factor=2.5):
     return Image.fromarray(thresh)
 
 
-def preprocess_for_vietocr(img, scale_factor=2.5):
+def preprocess_for_vietocr(img, scale_factor=2.5, visualize=False):
     """
     Preprocess image for VietOCR
 
     Args:
         img: PIL Image or path
         scale_factor: Scale factor for image upsampling
+        visualize: If True, display intermediate steps using matplotlib (for debugging)
 
     Returns:
         PIL.Image: Preprocessed image
@@ -113,33 +114,64 @@ def preprocess_for_vietocr(img, scale_factor=2.5):
         img = cv2.imread(img)
         if img is None:
             raise ValueError(f"Cannot read image from: {img}")
+    else:
+        # Convert PIL to OpenCV BGR if needed
+        if isinstance(img, Image.Image):
+            img = np.array(img)
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
     if isinstance(img, np.ndarray):
-        if len(img.shape) == 3:
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        img = Image.fromarray(img)
+        if len(img.shape) != 3 or img.shape[2] != 3:
+            # Ensure color if grayscale
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
-    if img.mode != 'L':
-        img = img.convert('L')
+    # Trim to content (converted to gray temporarily)
+    gray_temp = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    pil_gray = Image.fromarray(gray_temp)
+    trimmed = trim_to_content(pil_gray)
+    img = np.array(trimmed)
+    img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)  # Back to color
 
-    # Trim to content
-    img = trim_to_content(img)
+    if visualize:
+        show("Original", img)
 
-    # OpenCV processing
-    arr = np.array(img)
-    arr = cv2.resize(arr, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_CUBIC)
+    # Resize (on color)
+    img_resize = cv2.resize(
+        img, None,
+        fx=scale_factor, fy=scale_factor,
+        interpolation=cv2.INTER_CUBIC
+    )
+    if visualize:
+        show("Resize x2.5", img_resize)
 
-    # Enhance contrast
+    # Unsharp Mask (on color)
+    blur = cv2.GaussianBlur(img_resize, (0, 0), 1.0)
+    img_sharp = cv2.addWeighted(img_resize, 1.5, blur, -0.5, 0)
+    if visualize:
+        show("Sharpen", img_sharp)
+
+    # Grayscale
+    gray = cv2.cvtColor(img_sharp, cv2.COLOR_BGR2GRAY)
+    if visualize:
+        show("Grayscale", gray, gray=True)
+
+    # CLAHE
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    arr = clahe.apply(arr)
+    gray_clahe = clahe.apply(gray)
+    if visualize:
+        show("CLAHE", gray_clahe, gray=True)
 
-    # Denoise
-    arr = cv2.GaussianBlur(arr, (3, 3), 0)
+    # Denoise (Blur)
+    gray_blur = cv2.GaussianBlur(gray_clahe, (3, 3), 0)
+    if visualize:
+        show("Blur", gray_blur, gray=True)
 
     # Adaptive threshold
     binary = cv2.adaptiveThreshold(
-        arr, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 5
+        gray_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 5
     )
+    if visualize:
+        show("Binary", binary, gray=True)
 
     # Convert to RGB for VietOCR
     rgb = cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
