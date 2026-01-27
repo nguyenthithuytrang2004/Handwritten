@@ -37,26 +37,66 @@ Mục tiêu: mọi thành viên trong team có thể clone repo, cài đặt dep
      ```
  - GPU: nếu có CUDA và tensorflow‑gpu, bạn có thể cài phiên bản tương ứng cho hiệu năng cao hơn.
 
-## Cài đặt nhanh
-1. Clone repo:
-   ```bash
-   git clone <repo-url>
-   cd handwritten-character-recognition-deep-learning-master
-   ```
-2. Tạo virtualenv và cài dependencies:
-   ```bash
-   python -m venv .venv
-   # activate then
-   pip install -r requirements.txt
-   ```
-3. (OCR) Cài Tesseract trên máy (Windows: UB‑Mannheim build):
-   - Download: `https://github.com/UB-Mannheim/tesseract/wiki`
-   - Cài đặt (mặc định: `C:\Program Files\Tesseract-OCR`)
-   - Kiểm tra:
-     ```powershell
-     tesseract --version
-     ```
-   - Nếu không muốn thay PATH hệ thống, có thể cấu hình `pytesseract.pytesseract.tesseract_cmd` trong `src/ocr/core.py`.
+## Cài đặt nhanh (Quickstart)
+
+1) Clone repository và chuyển vào thư mục project:
+```bash
+git clone <repo-url>
+cd Handwritten-main
+```
+
+2) Tạo virtual environment và cài dependencies (recommended):
+
+- Windows PowerShell:
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
+```
+
+- Windows (cmd.exe):
+```bat
+python -m venv .venv
+.\.venv\Scripts\activate.bat
+python -m pip install -r requirements.txt
+```
+
+- macOS / Linux:
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+Notes:
+- Luôn chạy các lệnh từ project root (thư mục chứa `src/`) để tránh lỗi `ModuleNotFoundError: No module named 'src'`.
+- Nếu gặp lỗi với `tensorflow` (phiên bản/pip wheel), báo cho tôi biết `python --version` và tôi sẽ cung cấp lệnh cài phù hợp (ví dụ CPU-only or CUDA-enabled wheels).
+
+3) (OCR) Cài Tesseract binary (bắt buộc để dùng `pytesseract`):
+- Windows (UB‑Mannheim build recommended): https://github.com/UB-Mannheim/tesseract/wiki
+  - Mặc định cài vào `C:\Program Files\Tesseract-OCR`. Sau khi cài, kiểm tra:
+    ```powershell
+    tesseract --version
+    ```
+  - Nếu muốn cấu hình thủ công trong code, chỉnh `src/ocr/core.py`:
+    ```python
+    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    ```
+- macOS / Linux: cài bằng package manager (`brew install tesseract` hoặc `apt install tesseract-ocr`).
+
+4) (Optional) If you prefer a single command to start the GUI from the project root after activating venv:
+```powershell
+python main.py gui
+# or
+python main.py --gui
+```
+
+5) Quick checks (after activation):
+```powershell
+python -c "import sys, pkgutil; print('python', sys.version)"
+python -c "import numpy, PIL, tensorflow; print('ok')"
+```
 
 ## Dữ liệu — tải & đặt đúng chỗ
 Mục tiêu: mọi người dùng cùng một layout thư mục để training reproducible.

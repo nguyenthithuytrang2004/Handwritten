@@ -11,6 +11,8 @@ from PIL import Image, ImageGrab, ImageOps, ImageFilter, ImageDraw
 from pathlib import Path
 import time
 import os
+from tkinter import ttk
+from ..ui.widgets import RoundedFrame
 
 from .model import load_model, decode_prediction, CLASSES
 from .preprocessing import segment_characters
@@ -21,7 +23,14 @@ class HWRApp:
 
     def __init__(self, root):
         self.root = root
-        self.root.geometry("400x400")
+        # Responsive sizing based on screen resolution
+        screen_w = root.winfo_screenwidth()
+        screen_h = root.winfo_screenheight()
+        scale = max(0.8, min(1.4, min(screen_w / 1366.0, screen_h / 768.0)))
+        self.scale = scale
+        width = int(420 * scale)
+        height = int(420 * scale)
+        self.root.geometry(f"{width}x{height}")
         self.root.title("Handwritten Character Recognition")
 
         # Load model
@@ -36,12 +45,18 @@ class HWRApp:
 
     def setup_ui(self):
         """Setup the GUI interface"""
-        # Canvas for drawing
-        self.canvas_width = 300
-        self.canvas_height = 300
-        self.canvas = tk.Canvas(self.root, bg="black", height=self.canvas_height, width=self.canvas_width)
-        self.canvas.pack(pady=10)
+        # Canvas for drawing (size scales with screen)
+        self.canvas_width = int(300 * self.scale)
+        self.canvas_height = int(300 * self.scale)
+        # Use a framed container so background theme shows through around the canvas
+        container = tk.Frame(self.root, bg="#fff9e6")
+        container.pack(fill=tk.BOTH, expand=True)
+        self.canvas = tk.Canvas(container, bg="black", height=self.canvas_height, width=self.canvas_width, highlightthickness=1, relief=tk.RIDGE)
+        # Make canvas expand with window and be responsive
+        self.canvas.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         self.canvas.bind('<B1-Motion>', self.mouse_event)
+        # Bind resize events to preserve and scale the internal drawing buffer
+        self.canvas.bind("<Configure>", self._on_canvas_resize)
 
         # Internal drawing buffer (PIL) to avoid OS ImageGrab/DPI issues.
         # White strokes on black background (L mode).
@@ -61,7 +76,8 @@ class HWRApp:
     def mouse_event(self, event):
         """Handle mouse drawing event"""
         x, y = event.x, event.y
-        r = 12  # stroke radius
+        # Scale stroke radius with UI scale
+        r = max(4, int(12 * self.scale))
         # Draw on canvas for live feedback
         self.canvas.create_oval(x - r, y - r, x + r, y + r, fill='white', outline='white', width=0)
         # Draw on internal PIL buffer
@@ -93,6 +109,27 @@ class HWRApp:
         # recreate internal buffer
         self.draw_image = Image.new('L', (self.canvas_width, self.canvas_height), 0)
         self.draw_draw = ImageDraw.Draw(self.draw_image)
+
+    def _on_canvas_resize(self, event):
+        """Handle canvas size changes by resizing internal PIL buffer, attempting to preserve drawing."""
+        try:
+            new_w = max(10, event.width)
+            new_h = max(10, event.height)
+            if new_w == self.canvas_width and new_h == self.canvas_height:
+                return
+            # Try to scale existing drawing into new buffer
+            try:
+                old = self.draw_image
+                resized = old.resize((new_w, new_h), Image.NEAREST)
+                self.draw_image = resized
+                self.draw_draw = ImageDraw.Draw(self.draw_image)
+            except Exception:
+                self.draw_image = Image.new('L', (new_w, new_h), 0)
+                self.draw_draw = ImageDraw.Draw(self.draw_image)
+            self.canvas_width = new_w
+            self.canvas_height = new_h
+        except Exception:
+            pass
 
     def predict(self):
         """Predict characters from canvas"""
